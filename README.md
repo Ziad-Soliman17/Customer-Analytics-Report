@@ -2,15 +2,13 @@
 
 A comprehensive Power BI analytics solution that transforms customer transaction data into actionable insights through RFM (Recency, Frequency, Monetary) segmentation and purchase behaviour analysis.
 
-![Power BI](https://img.shields.io/badge/Power%20BI-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)
-![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=for-the-badge&logo=microsoft-sql-server&logoColor=white)
-![DAX](https://img.shields.io/badge/DAX-blue?style=for-the-badge)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=for-the-badge&logo=microsoft-sql-server&logoColor=white) ![Power BI](https://img.shields.io/badge/Power%20BI-F2C811?style=for-the-badge&logo=powerbi&logoColor=black) ![DAX](https://img.shields.io/badge/DAX-blue?style=for-the-badge)
 
-![Dashboard Preview](images/Customer%20Analytics-1.png)
+![Dashboard Preview](images/Customer%20Purchase%20Analytics-1.png)
 
-![Dashboard Preview](images/Customer%20Analytics-2.png)
+![Dashboard Preview](images/Customer%20Purchase%20Analytics-2.png)
 
-![Dashboard Preview](images/Customer%20Analytics-3.png)
+![Dashboard Preview](images/Customer%20Purchase%20Analytics-3.png)
 
 -----
 
@@ -29,14 +27,14 @@ The following SQL queries were used to extract and prepare data from the Adventu
 ```sql
 Select 
 	i.SalesOrderNumber,
-	COALESCE(r.SalesReasonKey,10) AS SalesReasonKey,
+	COALESCE(r.SalesReasonKey,10) AS SalesReasonKey, --Handele null sales reasons
 	i.ProductKey,
 	i.CustomerKey,
 	i.OrderDateKey,
 	i.SalesAmount,
 	i.OrderDate
 FROM FactInternetSales i 
-LEFT JOIN  FactInternetSalesReason r  ON r.SalesOrderNumber = i.SalesOrderNumber
+LEFT JOIN  FactInternetSalesReason r  ON r.SalesOrderNumber = i.SalesOrderNumber -- Join to get sales reason
 WHERE OrderDate IS NOT NULL 
 	AND YEAR(OrderDate) BETWEEN 2022 AND 2024;
 ```
@@ -60,19 +58,19 @@ WHERE YEAR(FullDateAlternateKey) BETWEEN 2022 AND 2024;
 ```sql
 SELECT
 	c.CustomerKey,
-	CONCAT (c.FirstName,' ',c.LastName) AS CustomerName,
+	CONCAT(c.FirstName,' ',c.LastName) AS CustomerName,
 	BirthDate, 
-	DATEDIFF(YEAR,c.BirthDate,GETDATE()) AS Age,
+	DATEDIFF(YEAR,c.BirthDate,GETDATE()) AS Age, -- Calculate Age
 	CASE 
 		WHEN c.Gender = 'M' THEN 'Male'	
 		WHEN c.Gender = 'F' THEN 'Female'
 		ELSE 'Not Specified'
-	END AS Gender,  
+	END AS Gender,  -- Improve readability
 	g.City,
 	g.StateProvinceName AS State,
 	g.EnglishCountryRegionName AS Country  
 From DimCustomer c
-LEFT JOIN DimGeography g ON c.GeographyKey = g.GeographyKey;
+LEFT JOIN DimGeography g ON c.GeographyKey = g.GeographyKey; --Join to get location details
 
 ```
 
@@ -83,11 +81,11 @@ SELECT
 SELECT
 	p.ProductKey,
 	p.EnglishProductName AS ProductName,
-	COALESCE(s.EnglishProductSubcategoryName, 'Others') AS Subcategory,
-	COALESCE(c.EnglishProductCategoryName, 'Others') AS Catgeory
+	COALESCE(s.EnglishProductSubcategoryName, 'Others') AS Subcategory, --Handle null subcategories
+	COALESCE(c.EnglishProductCategoryName, 'Others') AS Catgeory --Handle null categories
 FROM DimProduct p
-LEFT JOIN DimProductSubcategory s ON p.ProductSubcategoryKey = s.ProductSubcategoryKey
-LEFT JOIN DimProductCategory c ON s.ProductCategoryKey = c.ProductCategoryKey;
+LEFT JOIN DimProductSubcategory s ON p.ProductSubcategoryKey = s.ProductSubcategoryKey --Join to get subcategory
+LEFT JOIN DimProductCategory c ON s.ProductCategoryKey = c.ProductCategoryKey; --Join to get category
 ```
 
  - SalesReason Dimension Table
@@ -158,58 +156,52 @@ Average Order Value = DIVIDE([Total Spending], [Total Orders])
 ### Advanced Calculations
 
 ```dax
-// Retention Rate %
-Retention Rate = 
-VAR ReturningCustomers = 
-    CALCULATE(
-        DISTINCTCOUNT(Customers[CustomerID]),
-        FILTER(Orders, Orders[IsReturning] = TRUE)
-    )
-VAR TotalCustomers = [Total Customers]
-RETURN
-DIVIDE(ReturningCustomers, TotalCustomers, 0)
-
-// New vs Returning Classification
+//New Customers
 New Customers = 
-CALCULATE(
-    DISTINCTCOUNT(Customers[CustomerKey]),
-    FILTER(
-        Sales,
-        COUNTROWS(
-            FILTER(
-                Sales,
-                Sales[CustomerKey] = EARLIER(Sales[CustomerKey]) &&
-                Sales[OrderDateKey] < EARLIER(Sales[OrderDateKey])
-            )
-        ) = 0
-    )
-)
-
-Returning Customers = [Total Customers] - [New Customers]
-
-// RFM Segment Count
-Customers by Segment = 
-CALCULATE(
-    DISTINCTCOUNT(Customers[CustomerID]),
-    ALLEXCEPT(RFM_Scores, RFM_Scores[RFM_Segment])
-)
-
-// Spending Trend (Time Intelligence)
-Spending MoM Growth = 
-VAR CurrentMonth = [Total Spendings]
-VAR PreviousMonth = 
-    CALCULATE(
-        [Total Spendings],
-        DATEADD(Date[Date], -1, MONTH)
+VAR CurrentPeriodCustomers =
+    DISTINCT(Sales_fact[CustomerKey])
+VAR PreviousPeriodCustomers =
+    CALCULATETABLE(
+        DISTINCT(Sales_fact[CustomerKey]),
+        DATEADD(Date_dim[Date], -1, YEAR)
     )
 RETURN
-DIVIDE(CurrentMonth - PreviousMonth, PreviousMonth)
-```
+COUNTROWS(EXCEPT(CurrentPeriodCustomers, PreviousPeriodCustomers))
 
+// Returning Customers
+Returning Customers = 
+VAR CurrentPeriodCustomers =
+    DISTINCT(Sales_fact[CustomerKey])
+VAR PreviousPeriodCustomers =
+    CALCULATETABLE(
+        DISTINCT(Sales_fact[CustomerKey]),
+        DATEADD(Date_dim[Date], -1, YEAR)
+    )
+RETURN
+COUNTROWS(INTERSECT(CurrentPeriodCustomers, PreviousPeriodCustomers))
+
+// Retention Rate %
+Retention Rate = Retention Rate % = DIVIDE([Returning Customers],[Total Customers],0)
+
+// RFM Calculated Table
+RFM_Table = 
+VAR TodayDate = TODAY()
+RETURN
+CALCULATETABLE( 
+    SUMMARIZE( 
+        Customer_dim, 
+        Customer_dim[CustomerKey],
+        "Recency", DATEDIFF(MAX(Sales_fact[OrderDate]),TodayDate,DAY),
+        "Frequency", DISTINCTCOUNT(Sales_fact[SalesOrderNumber]),
+        "Monetary", CALCULATE(SUM('Sales_fact'[SalesAmount]))
+    ),
+    NOT(ISBLANK(Sales_fact[CustomerKey]))
+)
+```
 
 -----
 
-## 📈 Data Visualization
+## Data Visualization
 
 ### Page 1: Purchase Analytics
 
@@ -219,7 +211,7 @@ DIVIDE(CurrentMonth - PreviousMonth, PreviousMonth)
 - **Line Chart**: Monthly spending trend
 - **Combo Chart**: New vs Returning Customers with Retention Rate overlay
 - **Bar Chart**: Top 5 subcategories by spending (Road Bikes lead at $31M)
-- **Bar Chart**: Purchase reasons ranked by customer count 
+- **Bar Chart**: Purchase reasons ranked by customer count leading by price motivation (144.4K customers)
 
 
 ### Page 2: Customer Segmentation
@@ -227,7 +219,7 @@ DIVIDE(CurrentMonth - PreviousMonth, PreviousMonth)
 ![Dashboard Preview](images/Customer%20Analytics-2.png)
 
 - **Scatter Plot**: RFM Analysis matrix (Recency,Frequency and Monetary as size) with segment labels
-- **Bar Chart**: Customer distribution across 6 RFM segments + drill through to customer details
+- **Bar Chart**: Customer distribution across 6 RFM segments and drill through to customer details
 - **Donut Charts**: Gender split (50.66% Male, 49.34% Female)
 - **Geographic Map**: Customer distribution by country
 - **Bar Chart**: Age group breakdown (60+ largest at 6.3K)
@@ -237,6 +229,7 @@ DIVIDE(CurrentMonth - PreviousMonth, PreviousMonth)
 
 ![Dashboard Preview](images/Customer%20Analytics-3.png)
 
+- Drill through page showing detailed customer information for selected RFM segments and demographics.
 - **Data Table**: Detailed customer demographics and RFM segmentation
 - **Fields**: Name, Age, Gender, Location, RFM metrics, Segment
 
