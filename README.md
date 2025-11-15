@@ -205,7 +205,7 @@ CALCULATETABLE(
 
 ### Page 1: Purchase Analytics
 
-![Dashboard Preview](images/Customer%20Analytics-1.png)
+![Dashboard Preview](images/Customer%20Purchase%20Analytics-1.png)
 
 - **KPI Cards**: Total Customers (18K), Total Spendings ($70.9M), Avg Monthly Spending, Total Orders, AOV
 - **Line Chart**: Monthly spending trend
@@ -216,7 +216,7 @@ CALCULATETABLE(
 
 ### Page 2: Customer Segmentation
 
-![Dashboard Preview](images/Customer%20Analytics-2.png)
+![Dashboard Preview](images/Customer%20Purchase%20Analytics-2.png)
 
 - **Scatter Plot**: RFM Analysis matrix (Recency,Frequency and Monetary as size) with segment labels
 - **Bar Chart**: Customer distribution across 6 RFM segments and drill through to customer details
@@ -227,7 +227,7 @@ CALCULATETABLE(
 
 ### Page 3: Customer Details
 
-![Dashboard Preview](images/Customer%20Analytics-3.png)
+![Dashboard Preview](images/Customer%20Purchase%20Analytics-3.png)
 
 - Drill through page showing detailed customer information for selected RFM segments and demographics.
 - **Data Table**: Detailed customer demographics and RFM segmentation
